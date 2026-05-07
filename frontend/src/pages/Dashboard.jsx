@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ResponsiveBar } from "@nivo/bar";
 import { ResponsivePie } from "@nivo/pie";
 import Icon from "../components/Icon.jsx";
@@ -182,7 +182,61 @@ function CategoryBars({ data, selectedCategory, onCategoryClick }) {
 // Recent transactions mini-list
 // ---------------------------------------------------------------------------
 
-function RecentTxns({ txns }) {
+function CategoryCell({ txn, categories, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const selectRef = useRef(null);
+
+  useEffect(() => { if (editing) selectRef.current?.focus(); }, [editing]);
+
+  async function handleChange(e) {
+    const val = e.target.value;
+    setEditing(false);
+    if (val === (txn.category || "")) return;
+    await fetch(`/api/transactions/${txn.id}/category?category=${encodeURIComponent(val)}`, { method: "PATCH" });
+    onSave(txn.id, val);
+  }
+
+  if (editing) {
+    return (
+      <select
+        ref={selectRef}
+        defaultValue={txn.category || ""}
+        onChange={handleChange}
+        onBlur={() => setEditing(false)}
+        style={{
+          border: "1px solid var(--brand-400)",
+          borderRadius: "var(--r-sm)",
+          padding: "3px 8px",
+          fontSize: 12,
+          fontFamily: "var(--font-sans)",
+          background: "var(--paper-0)",
+          color: "var(--ink-0)",
+          outline: "none",
+          cursor: "pointer",
+          maxWidth: 180,
+        }}
+      >
+        <option value="">Uncategorized</option>
+        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      title="Click to change category"
+      style={{ background: "none", border: 0, cursor: "pointer", padding: 0, textAlign: "left" }}
+    >
+      {txn.category
+        ? <span className="cat">{txn.category}</span>
+        : <span style={{ fontSize: 12, color: "var(--ink-3)", fontStyle: "italic" }}>Uncategorized</span>
+      }
+    </button>
+  );
+}
+
+function RecentTxns({ txns, categories, onCategoryChange }) {
   if (!txns?.length) return (
     <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "16px 0" }}>No transactions yet.</div>
   );
@@ -197,11 +251,9 @@ function RecentTxns({ txns }) {
               <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{txn.date} · {txn.account_name}</div>
             </div>
-            {txn.category && (
-              <span className="cat" style={{ fontSize: 11, flexShrink: 0, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {txn.category}
-              </span>
-            )}
+            <div style={{ flexShrink: 0 }}>
+              <CategoryCell txn={txn} categories={categories} onSave={onCategoryChange} />
+            </div>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 500, flexShrink: 0, color: isIncome ? "var(--income)" : "var(--expense)" }}>
               {isIncome ? "+" : ""}{fmtFull(Math.abs(txn.amount))}
             </span>
@@ -223,9 +275,15 @@ export default function Dashboard() {
 
   const [cashflow,          setCashflow]          = useState([]);
   const [categories,        setCategories]        = useState([]);
+  const [allCategories,     setAllCategories]     = useState([]);
   const [recentTxns,        setRecentTxns]        = useState([]);
   const [excludeTax,        setExcludeTax]        = useState(false);
   const [selectedCategory,  setSelectedCategory]  = useState(null);
+
+  // Load all categories once (for dropdowns)
+  useEffect(() => {
+    fetch("/api/categories").then(r => r.json()).then(setAllCategories);
+  }, []);
 
   // Load available years once
   useEffect(() => {
@@ -283,6 +341,10 @@ export default function Dashboard() {
     : (t) => t.category !== "Internal Transfers";
   const displayedTxns = recentTxns.filter(EXCLUDED_TXNS).slice(0, 15);
   const displayedCategories = categories;
+
+  function handleCategoryChange(txnId, newCat) {
+    setRecentTxns(prev => prev.map(t => t.id === txnId ? { ...t, category: newCat } : t));
+  }
 
   return (
     <main className="main">
@@ -458,7 +520,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={{ padding: "0 20px 8px" }}>
-            <RecentTxns txns={displayedTxns} />
+            <RecentTxns txns={displayedTxns} categories={allCategories} onCategoryChange={handleCategoryChange} />
           </div>
         </div>
       </div>
