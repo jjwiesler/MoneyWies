@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(unzip -o \"MoneyWies-handoff.zip\" -d MoneyWies-handoff)",
+      "Bash(pandoc --track-changes=all \"personal-finance-prd \\(2\\).docx\" -o /tmp/prd.md)",
+      "Read(//tmp/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -m venv .venv)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(.venv/bin/python3 -c \"from db import init_db; from importer import parse_rocketmoney; from main import app; print\\('imports ok'\\)\")",
+      "Bash(.venv/bin/uvicorn main:app --port 8000)",
+      "Bash(curl -s http://localhost:8000/api/stats)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -X POST http://localhost:8000/api/import -F file=@2026-04-23T16_21_55.596Z-transactions.csv)",
+      "Bash(curl -s \"http://localhost:8000/api/transactions?limit=3\")",
+      "Bash(curl -s \"http://localhost:8000/api/stats\")",
+      "Bash(curl -s \"http://localhost:8000/api/accounts\")",
+      "Bash(python main.py)"
+    ]
+  }
+}

@@ -1,0 +1,340 @@
+/* ===========================================================
+   MoneyWies — shared components
+   Used by both the design system page and product screens.
+   =========================================================== */
+
+/* ---------- App chrome ---------- */
+.app {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  min-height: 100vh;
+}
+.sidebar {
+  background: var(--paper-0);
+  border-right: 1px solid var(--paper-3);
+  padding: 24px 14px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+}
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--brand-700);
+  display: grid;
+  place-items: center;
+  color: var(--paper-0);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+.brand-word {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-group-label {
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 8px 10px 6px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  color: var(--ink-1);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background var(--dur-fast) var(--ease);
+}
+.nav-item:hover { background: var(--paper-2); }
+.nav-item.active {
+  background: var(--brand-700);
+  color: var(--paper-0);
+}
+.nav-item .n-icon { width: 16px; height: 16px; opacity: 0.9; }
+.nav-item.active .n-icon { opacity: 1; }
+
+.main {
+  padding: 24px 28px 80px;
+  max-width: 1400px;
+  min-width: 0;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 28px;
+}
+.breadcrumb {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.breadcrumb .sep { color: var(--paper-4); }
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--paper-0);
+  border: 1px solid var(--paper-3);
+  border-radius: var(--r-lg);
+  padding: 20px;
+}
+.card.flush { padding: 0; overflow: hidden; }
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 12px;
+}
+.card-title {
+  font-size: var(--t-lead);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.card-sub {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+
+/* ---------- Stat card ---------- */
+.stat {
+  padding: 20px 22px;
+}
+.stat-label {
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.stat-value {
+  font-size: 36px;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.stat-value .sign { color: var(--ink-3); font-weight: 400; margin-right: 2px; }
+.stat-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.stat-delta.up { color: var(--income); }
+.stat-delta.down { color: var(--expense); }
+
+/* ---------- Pill / tag ---------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--paper-2);
+  color: var(--ink-1);
+  line-height: 1.4;
+}
+.pill.brand { background: var(--brand-50); color: var(--brand-700); }
+.pill.income { background: var(--income-soft); color: var(--income); }
+.pill.expense { background: var(--expense-soft); color: var(--expense); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.ghost { background: transparent; border: 1px solid var(--paper-3); color: var(--ink-1); }
+.pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--r-md);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all var(--dur-fast) var(--ease);
+  border: 1px solid transparent;
+}
+.btn-primary {
+  background: var(--brand-700);
+  color: var(--paper-0);
+}
+.btn-primary:hover { background: var(--brand-800); }
+.btn-secondary {
+  background: var(--paper-0);
+  color: var(--ink-0);
+  border-color: var(--paper-3);
+}
+.btn-secondary:hover { background: var(--paper-2); }
+.btn-ghost { color: var(--ink-1); }
+.btn-ghost:hover { background: var(--paper-2); }
+.btn-sm { padding: 6px 10px; font-size: 13px; border-radius: var(--r-sm); }
+
+/* ---------- Segmented control ---------- */
+.segmented {
+  display: inline-flex;
+  background: var(--paper-2);
+  border-radius: var(--r-md);
+  padding: 3px;
+  gap: 2px;
+}
+.segmented button {
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+  transition: all var(--dur-fast) var(--ease);
+}
+.segmented button.on {
+  background: var(--paper-0);
+  color: var(--ink-0);
+  box-shadow: var(--shadow-xs);
+}
+.segmented button:not(.on):hover { color: var(--ink-0); }
+
+/* ---------- Input ---------- */
+.input {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--paper-0);
+  border: 1px solid var(--paper-3);
+  border-radius: var(--r-md);
+  padding: 7px 12px;
+  min-width: 220px;
+  color: var(--ink-1);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.input:focus-within { border-color: var(--brand-400); }
+.input input {
+  border: 0; outline: 0; background: transparent; width: 100%;
+  font-size: 14px;
+}
+.input .k {
+  font-size: 11px; color: var(--ink-3);
+  font-family: var(--font-mono);
+  padding: 2px 6px; border-radius: var(--r-xs);
+  background: var(--paper-2);
+}
+
+/* ---------- Category chip ---------- */
+.cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 6px;
+  border-radius: var(--r-full);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--paper-2);
+  color: var(--ink-1);
+  line-height: 1.4;
+}
+.cat .swatch {
+  width: 14px; height: 14px; border-radius: 4px;
+  display: grid; place-items: center;
+  font-size: 9px; color: rgba(255,255,255,0.9);
+}
+
+/* ---------- Table ---------- */
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.tbl th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--paper-3);
+}
+.tbl td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--paper-3);
+  vertical-align: middle;
+}
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl tr:hover td { background: var(--paper-1); }
+.tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- Merchant row ---------- */
+.merchant {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.merchant .logo {
+  width: 28px; height: 28px; border-radius: 7px;
+  display: grid; place-items: center;
+  background: var(--paper-2);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-1);
+  letter-spacing: -0.02em;
+}
+.merchant { gap: 10px; }
+.merchant .meta { display: flex; flex-direction: column; }
+.merchant .meta .name { font-weight: 500; font-size: 13px; color: var(--ink-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.merchant .meta .sub { font-size: 11px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Money text ---------- */
+.money { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; letter-spacing: -0.005em; }
+.money.pos { color: var(--income); }
+.money.neg { color: var(--ink-0); }
+.money.exp { color: var(--ink-0); }
+
+/* ---------- Progress bar (for category breakdown) ---------- */
+.bar {
+  position: relative;
+  height: 6px;
+  background: var(--paper-2);
+  border-radius: var(--r-full);
+  overflow: hidden;
+}
+.bar > span {
+  position: absolute; inset: 0 auto 0 0;
+  background: var(--brand-700);
+  border-radius: var(--r-full);
+}
+
+/* ---------- Divider labels ---------- */
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid var(--paper-3);
+  border-radius: var(--r-xs);
+  background: var(--paper-0);
+  color: var(--ink-2);
+}
