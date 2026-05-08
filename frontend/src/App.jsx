@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { WorkspaceProvider, useWorkspace } from "./context/WorkspaceContext.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import ChatPanel from "./components/ChatPanel.jsx";
 import Transactions from "./pages/Transactions.jsx";
@@ -15,15 +16,24 @@ import Import from "./pages/Import.jsx";
 import Reconcile from "./pages/Reconcile.jsx";
 import Recurring from "./pages/Recurring.jsx";
 import Settings from "./pages/Settings.jsx";
+import WorkspaceAuth from "./pages/WorkspaceAuth.jsx";
+import WorkspaceAdmin from "./pages/WorkspaceAdmin.jsx";
 
-export default function App() {
+function AppInner() {
   const [chatOpen, setChatOpen] = useState(false);
+  const { workspace } = useWorkspace();
+
+  // Still loading
+  if (workspace === undefined) return null;
+
+  // No workspace — show token entry
+  if (workspace === null) return <WorkspaceAuth />;
 
   return (
     <div className="app">
       <Sidebar onChatOpen={() => setChatOpen(true)} />
       <Routes>
-        <Route path="/" element={<Navigate to="/transactions" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/income" element={<Income />} />
@@ -37,8 +47,17 @@ export default function App() {
         <Route path="/import" element={<Import />} />
         <Route path="/reconcile" element={<Reconcile />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/workspaces" element={<WorkspaceAdmin />} />
       </Routes>
       <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <WorkspaceProvider>
+      <AppInner />
+    </WorkspaceProvider>
   );
 }

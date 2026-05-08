@@ -18,14 +18,18 @@ def _norm_labels(label_str: str) -> str:
             seen.add(p.lower()); deduped.append(p)
     return ",".join(deduped) or None
 
-from fastapi import FastAPI, UploadFile, File, Query, HTTPException
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from typing import Optional, List
 from pydantic import BaseModel
 
-from db import init_db, db
+from db import init_db, db, set_workspace_db
 from importer import parse_rocketmoney, preview_rocketmoney, EXCLUDED_CATEGORIES
+from workspaces import (
+    ensure_default_workspace, get_workspace_by_token, create_workspace,
+    list_workspaces_public, get_workspace_db_path,
+)
 from rules import apply_rules, preview_rule, create_rule, update_rule, delete_rule, reorder_rules
 from income import get_summary, get_monthly, get_by_source, get_yoy, get_tax_exposure, INCOME_CATEGORIES
 from expenses import get_summary as get_expense_summary, get_monthly as get_expense_monthly, get_yoy as get_expense_yoy
@@ -41,7 +45,7 @@ from properties import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    ensure_default_workspace()
     yield
 
 
@@ -52,7 +56,69 @@ app.add_middleware(
     allow_origins=["http://localhost:3000", "http://localhost:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
+
+
+@app.middleware("http")
+async def workspace_middleware(request: Request, call_next):
+    token = request.cookies.get("ws_token") or request.headers.get("X-Workspace-Token")
+    if token:
+        ws = get_workspace_by_token(token)
+        if ws:
+            set_workspace_db(get_workspace_db_path(ws))
+    return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# Workspace
+# ---------------------------------------------------------------------------
+
+class WorkspaceAuthBody(BaseModel):
+    token: str
+
+class WorkspaceCreateBody(BaseModel):
+    name: str
+
+
+@app.get("/api/workspaces")
+def list_ws():
+    return list_workspaces_public()
+
+
+@app.post("/api/workspaces")
+def create_ws(body: WorkspaceCreateBody):
+    ws = create_workspace(body.name)
+    return {"id": ws["id"], "name": ws["name"], "token": ws["token"]}
+
+
+@app.post("/api/workspace/auth")
+def auth_workspace(body: WorkspaceAuthBody, response: Response):
+    ws = get_workspace_by_token(body.token)
+    if not ws:
+        raise HTTPException(401, "Invalid token")
+    response.set_cookie(
+        "ws_token", body.token,
+        httponly=True, samesite="lax", max_age=60 * 60 * 24 * 365,
+    )
+    return {"id": ws["id"], "name": ws["name"]}
+
+
+@app.post("/api/workspace/logout")
+def logout_workspace(response: Response):
+    response.delete_cookie("ws_token")
+    return {"ok": True}
+
+
+@app.get("/api/workspace/current")
+def current_workspace(request: Request):
+    token = request.cookies.get("ws_token") or request.headers.get("X-Workspace-Token")
+    if not token:
+        raise HTTPException(401, "No workspace token")
+    ws = get_workspace_by_token(token)
+    if not ws:
+        raise HTTPException(401, "Invalid token")
+    return {"id": ws["id"], "name": ws["name"]}
 
 
 # ---------------------------------------------------------------------------

@@ -1,12 +1,22 @@
 import sqlite3
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "moneywies.db"
+_DEFAULT_DB = Path(__file__).parent / "moneywies.db"
+_db_path: ContextVar[Path] = ContextVar("db_path", default=_DEFAULT_DB)
+
+
+def set_workspace_db(path: Path):
+    _db_path.set(path)
+
+
+def get_db_path() -> Path:
+    return _db_path.get()
 
 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
@@ -26,7 +36,9 @@ def db():
         conn.close()
 
 
-def init_db():
+def init_db(path: Path = None):
+    if path:
+        set_workspace_db(path)
     with db() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS transactions (

@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import Icon from "./Icon.jsx";
 import moneywiesLogo from "../assets/moneywies-logo.png";
+import { useWorkspace } from "../context/WorkspaceContext.jsx";
 
 const NAV = [
   { to: "/dashboard",    label: "Dashboard",    icon: "dashboard" },
@@ -18,6 +19,8 @@ const NAV = [
 ];
 
 export default function Sidebar({ onChatOpen }) {
+  const { workspace, logout } = useWorkspace();
+
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -46,6 +49,10 @@ export default function Sidebar({ onChatOpen }) {
           <span className="n-icon"><Icon name="settings" size={16} stroke={1.6} /></span>
           Settings
         </NavLink>
+        <NavLink to="/workspaces" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+          <span className="n-icon"><Icon name="accounts" size={16} stroke={1.6} /></span>
+          Workspaces
+        </NavLink>
       </nav>
 
       <div style={{ padding: "0 10px 12px" }}>
@@ -64,14 +71,31 @@ export default function Sidebar({ onChatOpen }) {
         </button>
       </div>
 
-      <div style={{ padding: "16px 10px", borderTop: "1px solid var(--paper-3)", fontSize: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--brand-700)", color: "#fff", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 600 }}>
-            JS
-          </div>
-          <div style={{ lineHeight: 1.3 }}>
-            <div style={{ fontWeight: 500, color: "var(--ink-0)" }}>JJ &amp; Sam</div>
-            <div style={{ color: "var(--ink-3)", fontSize: 11 }}>Household</div>
+      <div style={{ padding: "12px 10px 16px", borderTop: "1px solid var(--paper-3)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: 8, background: "var(--brand-700)",
+              color: "#fff", display: "grid", placeItems: "center", fontSize: 12,
+              fontWeight: 600, flexShrink: 0,
+            }}>
+              {workspace?.name?.slice(0, 2).toUpperCase() ?? "WS"}
+            </div>
+            <div style={{ lineHeight: 1.3, minWidth: 0 }}>
+              <div style={{ fontWeight: 500, color: "var(--ink-0)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {workspace?.name ?? "Workspace"}
+              </div>
+              <button
+                onClick={logout}
+                style={{
+                  background: "none", border: "none", padding: 0, cursor: "pointer",
+                  color: "var(--ink-3)", fontSize: 11, fontFamily: "var(--font-sans)",
+                  textDecoration: "underline", textUnderlineOffset: 2,
+                }}
+              >
+                Switch workspace
+              </button>
+            </div>
           </div>
         </div>
       </div>

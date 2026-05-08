@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon.jsx";
 
 // ---------------------------------------------------------------------------
@@ -379,12 +380,13 @@ function LabelsSection() {
 // ---------------------------------------------------------------------------
 
 export default function Settings() {
+  const navigate = useNavigate();
   return (
     <main className="main">
       <div className="topbar">
         <div>
           <div className="breadcrumb">
-            <span>Household</span><span className="sep">/</span><span>Settings</span>
+            <span>Settings</span>
           </div>
           <h1 style={{ fontSize: 34, fontWeight: 500, letterSpacing: "-0.02em", margin: "6px 0 0" }}>
             Settings
@@ -393,6 +395,17 @@ export default function Settings() {
       </div>
 
       <div style={{ maxWidth: 680 }}>
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-head">
+            <div>
+              <div className="card-title">Workspaces</div>
+              <div className="card-sub">Create and manage separate data workspaces</div>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate("/workspaces")}>
+              Manage <Icon name="arrowRight" size={13} />
+            </button>
+          </div>
+        </div>
         <AISection />
         <CategoriesSection />
         <LabelsSection />
