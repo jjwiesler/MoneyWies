@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# SQLite databases (contain user data)
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+
+# Workspace config (contains secret tokens)
+backend/workspaces.json
+WORKSPACE_TOKENS.txt
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Vite cache
+frontend/.vite/

@@ -4,8 +4,14 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "/Users/jjwiesler/Documents/Claude/MoneyWies/frontend", "run", "dev"],
+      "runtimeArgs": ["--prefix", "/Users/jjwiesler/Documents/Claude/MoneyWies/.claude/worktrees/tender-moser-362ad1/frontend", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/jjwiesler/Documents/Claude/MoneyWies/.claude/worktrees/tender-moser-362ad1/backend && python3 -m uvicorn main:app --port 8000"],
+      "port": 8000
     }
   ]
 }
