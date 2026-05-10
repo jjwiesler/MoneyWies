@@ -225,6 +225,13 @@ def _migrate(conn):
         conn.execute("ALTER TABLE transactions ADD COLUMN label TEXT")
     if "merchant_alias" not in cols:
         conn.execute("ALTER TABLE transactions ADD COLUMN merchant_alias TEXT")
+    if "is_recurring_override" not in cols:
+        conn.execute("ALTER TABLE transactions ADD COLUMN is_recurring_override INTEGER DEFAULT NULL")
+
+    # Allocation rules migrations
+    alloc_cols = {r[1] for r in conn.execute("PRAGMA table_info(allocation_rules)")}
+    if "merchant_pattern" not in alloc_cols:
+        conn.execute("ALTER TABLE allocation_rules ADD COLUMN merchant_pattern TEXT")
 
     # Rules table migrations
     rule_cols = {r[1] for r in conn.execute("PRAGMA table_info(rules)")}

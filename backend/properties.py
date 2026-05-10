@@ -121,9 +121,11 @@ def list_allocation_rules(conn, property_id: Optional[str] = None) -> list:
 
 
 def create_allocation_rule(conn, name: str, property_id: Optional[str],
-                           splits: list, notes: Optional[str] = None) -> dict:
+                           splits: list, notes: Optional[str] = None,
+                           merchant_pattern: Optional[str] = None) -> dict:
     """
     splits: [{unit_id, label, percentage}, ...]  — percentages must sum to 100.
+    merchant_pattern: substring match (case-insensitive) to auto-apply on import.
     """
     total_pct = sum(s["percentage"] for s in splits)
     if abs(total_pct - 100) > 0.01:
@@ -131,8 +133,8 @@ def create_allocation_rule(conn, name: str, property_id: Optional[str],
 
     rule_id = str(uuid.uuid4())
     conn.execute(
-        "INSERT INTO allocation_rules (id, name, property_id, notes) VALUES (?,?,?,?)",
-        (rule_id, name, property_id, notes),
+        "INSERT INTO allocation_rules (id, name, property_id, notes, merchant_pattern) VALUES (?,?,?,?,?)",
+        (rule_id, name, property_id, notes, merchant_pattern),
     )
     for split in splits:
         conn.execute(
@@ -143,11 +145,12 @@ def create_allocation_rule(conn, name: str, property_id: Optional[str],
 
 
 def update_allocation_rule(conn, rule_id: str, name: Optional[str], notes: Optional[str],
-                           splits: Optional[list]) -> Optional[dict]:
-    if name or notes:
-        updates = {}
-        if name:  updates["name"]  = name
-        if notes: updates["notes"] = notes
+                           splits: Optional[list], merchant_pattern: Optional[str] = None) -> Optional[dict]:
+    updates = {}
+    if name:                             updates["name"]             = name
+    if notes is not None:                updates["notes"]            = notes
+    if merchant_pattern is not None:     updates["merchant_pattern"] = merchant_pattern or None
+    if updates:
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         conn.execute(f"UPDATE allocation_rules SET {set_clause} WHERE id = ?", list(updates.values()) + [rule_id])
 
@@ -281,6 +284,136 @@ def get_property_expenses(conn, property_id: str, period: Optional[str] = None) 
     return {
         "direct":    [dict(r) for r in direct],
         "allocated": [dict(r) for r in allocated],
+    }
+
+
+def apply_auto_allocation_rules(conn, txn_ids: list) -> int:
+    """
+    For each transaction, check if any allocation_rule has a merchant_pattern
+    that matches the merchant name. Auto-applies the first matching rule.
+    Returns count of transactions allocated.
+    """
+    rules = conn.execute(
+        "SELECT * FROM allocation_rules WHERE merchant_pattern IS NOT NULL AND merchant_pattern != ''"
+    ).fetchall()
+    if not rules:
+        return 0
+
+    count = 0
+    for txn_id in txn_ids:
+        txn = conn.execute(
+            "SELECT id, name, custom_name, merchant_alias, allocation_rule_id FROM transactions WHERE id = ?",
+            (txn_id,),
+        ).fetchone()
+        if not txn or txn["allocation_rule_id"]:
+            continue  # already allocated, skip
+        name_str = " ".join(
+            filter(None, [txn["name"], txn["custom_name"], txn["merchant_alias"]])
+        ).lower()
+        for rule in rules:
+            pattern = (rule["merchant_pattern"] or "").strip().lower()
+            if pattern and pattern in name_str:
+                apply_allocation(conn, txn_id, rule["id"])
+                count += 1
+                break
+    return count
+
+
+def get_expense_analysis(conn, property_id: str, year: int) -> dict:
+    """
+    Per-property expense breakdown: recurring_monthly, recurring_annual, one_time.
+    is_recurring_override takes priority; falls back to detect_recurring() output.
+    """
+    import re
+    from ai import detect_recurring
+
+    date_like = f"{year}%"
+
+    # Direct transactions (not allocated via a rule)
+    direct_rows = conn.execute(
+        """SELECT t.id, t.name, t.custom_name, t.merchant_alias, t.amount AS effective_amount,
+                  t.date, t.is_recurring_override, t.category, t.schedule_e_category,
+                  'direct' AS source
+           FROM transactions t
+           WHERE t.property_id = ? AND t.amount > 0 AND t.ignored = 0
+             AND t.date LIKE ?
+             AND t.allocation_rule_id IS NULL""",
+        (property_id, date_like),
+    ).fetchall()
+
+    # Allocated transactions (use ta.amount for the property's share)
+    alloc_rows = conn.execute(
+        """SELECT t.id, t.name, t.custom_name, t.merchant_alias, ta.amount AS effective_amount,
+                  t.date, t.is_recurring_override, t.category, ta.schedule_e_category,
+                  'allocated' AS source
+           FROM transaction_allocations ta
+           JOIN transactions t ON t.id = ta.transaction_id
+           JOIN units u ON u.id = ta.unit_id
+           WHERE u.property_id = ? AND t.amount > 0 AND t.ignored = 0
+             AND t.date LIKE ?""",
+        (property_id, date_like),
+    ).fetchall()
+
+    all_txns = [dict(r) for r in direct_rows] + [dict(r) for r in alloc_rows]
+
+    # Build recurring detection index: normalized name prefix → frequency
+    rec_data = detect_recurring(conn)
+    rec_index = {}
+    for r in rec_data:
+        key = re.sub(r"[^a-z0-9]", "", r["name"].lower())[:10]
+        rec_index[key] = r.get("frequency", "irregular")
+
+    def classify(txn):
+        override = txn["is_recurring_override"]
+        if override == 1:
+            return "recurring_monthly"
+        if override == 0:
+            return "one_time"
+        raw = txn["name"] or ""
+        key = re.sub(r"[^a-z0-9]", "", raw.lower())[:10]
+        freq = rec_index.get(key, "irregular")
+        if freq in ("monthly", "weekly", "biweekly", "quarterly"):
+            return "recurring_monthly"
+        if freq == "annual":
+            return "recurring_annual"
+        return "one_time"
+
+    buckets: dict = {"recurring_monthly": [], "recurring_annual": [], "one_time": []}
+    for txn in all_txns:
+        display_name = txn["custom_name"] or txn["merchant_alias"] or txn["name"]
+        entry = {
+            "id":       txn["id"],
+            "name":     display_name,
+            "amount":   round(txn["effective_amount"], 2),
+            "date":     txn["date"],
+            "category": txn["category"],
+            "is_recurring_override": txn["is_recurring_override"],
+            "source":   txn["source"],
+        }
+        buckets[classify(txn)].append(entry)
+
+    monthly_totals = []
+    for m in range(1, 13):
+        prefix = f"{year}-{m:02d}"
+        def month_sum(lst, p=prefix):
+            return round(sum(t["amount"] for t in lst if t["date"].startswith(p)), 2)
+        monthly_totals.append({
+            "month":    m,
+            "label":    prefix,
+            "recurring": month_sum(buckets["recurring_monthly"]) + month_sum(buckets["recurring_annual"]),
+            "one_time": month_sum(buckets["one_time"]),
+        })
+
+    return {
+        "recurring_monthly": buckets["recurring_monthly"],
+        "recurring_annual":  buckets["recurring_annual"],
+        "one_time":          buckets["one_time"],
+        "monthly_totals":    monthly_totals,
+        "totals": {
+            "recurring_monthly": round(sum(t["amount"] for t in buckets["recurring_monthly"]), 2),
+            "recurring_annual":  round(sum(t["amount"] for t in buckets["recurring_annual"]), 2),
+            "one_time":          round(sum(t["amount"] for t in buckets["one_time"]), 2),
+        },
     }
 
 
