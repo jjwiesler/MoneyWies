@@ -45,6 +45,41 @@ function catColor(cat) {
 }
 
 // ---------------------------------------------------------------------------
+// Recurring override toggle (shown on property-tagged transactions)
+// ---------------------------------------------------------------------------
+
+function RecurringToggle({ txn, onSave }) {
+  const val = txn.is_recurring_override;
+  const states  = [null, true, false];
+  const labels  = { null: "auto", true: "recurring", false: "one-time" };
+  const colors  = { null: "var(--ink-3)", true: "var(--income)", false: "var(--expense)" };
+
+  async function cycle() {
+    const idx  = states.findIndex(s => s === (val === null ? null : val === 1 ? true : false));
+    const next = states[(idx + 1) % 3];
+    await fetch(`/api/transactions/${txn.id}/recurring`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_recurring_override: next }),
+    });
+    onSave(txn.id, next === null ? null : next ? 1 : 0);
+  }
+
+  const key = val === null ? "null" : val === 1 ? "true" : "false";
+  return (
+    <button
+      onClick={cycle}
+      title="Toggle recurring classification"
+      style={{ fontSize: 10, color: colors[key === "null" ? null : key === "true" ? true : false],
+               background: "none", border: 0, cursor: "pointer", padding: "2px 4px",
+               borderRadius: "var(--r-sm)" }}
+    >
+      {labels[key === "null" ? null : key === "true" ? true : false]}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Inline editable cell (shared by category and label)
 // ---------------------------------------------------------------------------
 
@@ -611,6 +646,10 @@ export default function Transactions() {
     }
   }
 
+  function handleRecurringSave(id, val) {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, is_recurring_override: val } : r));
+  }
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
@@ -806,6 +845,9 @@ export default function Transactions() {
                   </td>
                   <td>
                     <LabelCell txn={txn} labels={labels} onSave={(id, l) => handleLabelSave(id, l)} />
+                    {txn.property_id && (
+                      <RecurringToggle txn={txn} onSave={handleRecurringSave} />
+                    )}
                   </td>
                   <td
                     className="num money mono"

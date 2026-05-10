@@ -39,7 +39,8 @@ from properties import (
     list_properties, get_property, create_property, update_property, delete_property,
     create_unit, update_unit, delete_unit,
     list_allocation_rules, create_allocation_rule, update_allocation_rule, delete_allocation_rule,
-    apply_allocation, get_property_expenses, get_schedule_e, SCHEDULE_E_CATEGORIES,
+    apply_allocation, apply_auto_allocation_rules, get_property_expenses, get_expense_analysis,
+    get_schedule_e, SCHEDULE_E_CATEGORIES,
 )
 
 
@@ -153,6 +154,7 @@ def import_csv(file: UploadFile = File(...)):
 
         if stats["new_ids"]:
             rule_stats = apply_rules(conn, txn_ids=stats["new_ids"])
+            apply_auto_allocation_rules(conn, stats["new_ids"])
             ids_ph = ",".join("?" * len(stats["new_ids"]))
 
             dr = conn.execute(
@@ -981,10 +983,15 @@ class AllocationSplit(BaseModel):
 
 
 class AllocationRuleBody(BaseModel):
-    name:        str
-    property_id: Optional[str] = None
-    splits:      List[AllocationSplit]
-    notes:       Optional[str] = None
+    name:             str
+    property_id:      Optional[str] = None
+    splits:           List[AllocationSplit]
+    notes:            Optional[str] = None
+    merchant_pattern: Optional[str] = None
+
+
+class RecurringOverridePatch(BaseModel):
+    is_recurring_override: Optional[bool] = None  # None=auto, True=recurring, False=one-time
 
 
 class ApplyAllocationBody(BaseModel):
@@ -1097,7 +1104,10 @@ def create_allocation_rule_endpoint(body: AllocationRuleBody):
     splits = [s.dict() for s in body.splits]
     with db() as conn:
         try:
-            return create_allocation_rule(conn, body.name, body.property_id, splits, body.notes)
+            return create_allocation_rule(
+                conn, body.name, body.property_id, splits, body.notes,
+                merchant_pattern=body.merchant_pattern or None,
+            )
         except ValueError as e:
             raise HTTPException(400, str(e))
 
@@ -1107,7 +1117,10 @@ def update_allocation_rule_endpoint(rule_id: str, body: AllocationRuleBody):
     splits = [s.dict() for s in body.splits]
     with db() as conn:
         try:
-            rule = update_allocation_rule(conn, rule_id, body.name, body.notes, splits)
+            rule = update_allocation_rule(
+                conn, rule_id, body.name, body.notes, splits,
+                merchant_pattern=body.merchant_pattern,
+            )
         except ValueError as e:
             raise HTTPException(400, str(e))
     if not rule:
@@ -1150,6 +1163,27 @@ def patch_txn_property(txn_id: str, body: TxnPropertyPatch):
         if cur.rowcount == 0:
             raise HTTPException(404, "Transaction not found")
     return {"ok": True}
+
+
+@app.patch("/api/transactions/{txn_id}/recurring")
+def patch_txn_recurring(txn_id: str, body: RecurringOverridePatch):
+    val = None if body.is_recurring_override is None else (1 if body.is_recurring_override else 0)
+    with db() as conn:
+        cur = conn.execute(
+            "UPDATE transactions SET is_recurring_override = ? WHERE id = ?", (val, txn_id)
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Transaction not found")
+    return {"ok": True}
+
+
+@app.get("/api/properties/{prop_id}/expense-analysis")
+def property_expense_analysis(prop_id: str, year: int = Query(None)):
+    if year is None:
+        from datetime import date
+        year = date.today().year
+    with db() as conn:
+        return get_expense_analysis(conn, prop_id, year)
 
 # ---------------------------------------------------------------------------
 # AI — Claude integration (#10 & #11)

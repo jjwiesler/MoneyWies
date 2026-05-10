@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Icon from "../components/Icon.jsx";
+import Sparkline from "../components/Sparkline.jsx";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -211,6 +212,7 @@ function UnitModal({ propId, unit, onSave, onClose }) {
 function AllocationRuleModal({ propId, units, rule, onSave, onClose }) {
   const [name, setName]   = useState(rule?.name ?? "");
   const [notes, setNotes] = useState(rule?.notes ?? "");
+  const [merchantPattern, setMerchantPattern] = useState(rule?.merchant_pattern ?? "");
   const [splits, setSplits] = useState(
     rule?.splits?.length
       ? rule.splits.map(s => ({ unit_id: s.unit_id ?? "", label: s.label, percentage: s.percentage }))
@@ -238,6 +240,7 @@ function AllocationRuleModal({ propId, units, rule, onSave, onClose }) {
     setErr(null);
     const body = {
       name, notes, property_id: propId,
+      merchant_pattern: merchantPattern.trim() || null,
       splits: splits.map(s => ({ ...s, unit_id: s.unit_id || null, percentage: Number(s.percentage) })),
     };
     const res = rule
@@ -258,6 +261,17 @@ function AllocationRuleModal({ propId, units, rule, onSave, onClose }) {
             onChange={e => setName(e.target.value)}
             style={{ border: "1px solid var(--paper-3)", borderRadius: "var(--r-sm)", padding: "8px 10px", fontSize: 14, background: "var(--paper-0)", outline: "none" }}
           />
+        </label>
+
+        <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-2)" }}>Auto-apply when merchant contains (optional)</span>
+          <input
+            value={merchantPattern}
+            placeholder="e.g. PGE, Comcast"
+            onChange={e => setMerchantPattern(e.target.value)}
+            style={{ border: "1px solid var(--paper-3)", borderRadius: "var(--r-sm)", padding: "8px 10px", fontSize: 14, background: "var(--paper-0)", outline: "none" }}
+          />
+          <span style={{ fontSize: 11, color: "var(--ink-3)" }}>This pattern auto-applies to new imports — case-insensitive substring match.</span>
         </label>
 
         <div>
@@ -384,6 +398,121 @@ function ScheduleETable({ propId }) {
 // Property detail panel
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Property expense analysis
+// ---------------------------------------------------------------------------
+
+function ExpenseBucket({ title, txns, color }) {
+  const [open, setOpen] = useState(true);
+  const total = txns.reduce((s, t) => s + t.amount, 0);
+  return (
+    <div className="card flush" style={{ marginTop: 16 }}>
+      <div className="card-head" style={{ cursor: "pointer" }} onClick={() => setOpen(o => !o)}>
+        <div className="card-title">{title}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color }}>{fmt(total)}</span>
+          <span className="pill" style={{ fontSize: 11 }}>{txns.length}</span>
+          <Icon name={open ? "chevron-up" : "chevron-down"} size={14} />
+        </div>
+      </div>
+      {open && (
+        txns.length === 0 ? (
+          <div style={{ padding: "12px 20px", color: "var(--ink-3)", fontSize: 13 }}>None this year</div>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr><th>Merchant</th><th>Category</th><th style={{ textAlign: "right" }}>Amount</th><th>Date</th><th>Source</th></tr>
+            </thead>
+            <tbody>
+              {txns.map(t => (
+                <tr key={t.id + t.source}>
+                  <td style={{ fontWeight: 500 }}>{t.name}</td>
+                  <td style={{ color: "var(--ink-2)", fontSize: 13 }}>{t.category ?? "—"}</td>
+                  <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(t.amount)}</td>
+                  <td style={{ color: "var(--ink-2)", fontSize: 13 }}>{t.date}</td>
+                  <td><span className="pill" style={{ fontSize: 11 }}>{t.source}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
+      )}
+    </div>
+  );
+}
+
+function PropertyExpenseAnalysis({ propId }) {
+  const [year, setYear]     = useState(CURRENT_YEAR);
+  const [data, setData]     = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!propId) return;
+    setLoading(true);
+    api(`/properties/${propId}/expense-analysis?year=${year}`)
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, [propId, year]);
+
+  const isEmpty = data && !data.recurring_monthly.length && !data.recurring_annual.length && !data.one_time.length;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ fontSize: 13, color: "var(--ink-2)" }}>
+          {data && !isEmpty && (
+            <>
+              <span style={{ color: "var(--brand-700)", fontWeight: 600 }}>
+                {fmt(data.totals.recurring_monthly + data.totals.recurring_annual)}
+              </span>
+              {" recurring · "}
+              <span style={{ color: "#B7402A", fontWeight: 600 }}>{fmt(data.totals.one_time)}</span>
+              {" one-time"}
+            </>
+          )}
+        </div>
+        <div className="segmented">
+          {[CURRENT_YEAR - 1, CURRENT_YEAR].map(y => (
+            <button key={y} className={year === y ? "on" : ""} onClick={() => setYear(y)}>{y}</button>
+          ))}
+        </div>
+      </div>
+
+      {loading && <div style={{ padding: "24px 0", color: "var(--ink-3)", fontSize: 13 }}>Loading…</div>}
+
+      {!loading && isEmpty && (
+        <div style={{ padding: "32px 0", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+          No expense data for {year}.<br />
+          Tag transactions to this property via the Transactions page to see analytics.
+        </div>
+      )}
+
+      {!loading && data && !isEmpty && (
+        <>
+          {/* Trend chart */}
+          <div className="card flush" style={{ marginTop: 16, padding: "16px 20px" }}>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-2)", marginBottom: 10 }}>Monthly Trend</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, color: "var(--brand-700)", marginBottom: 4 }}>Recurring</div>
+                <Sparkline data={data.monthly_totals.map(m => m.recurring)} color="var(--brand-700)" height={48} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#B7402A", marginBottom: 4 }}>One-Time</div>
+                <Sparkline data={data.monthly_totals.map(m => m.one_time)} color="#B7402A" height={48} />
+              </div>
+            </div>
+          </div>
+
+          <ExpenseBucket title="Monthly Recurring" txns={data.recurring_monthly} color="var(--brand-700)" />
+          <ExpenseBucket title="Annual Recurring"  txns={data.recurring_annual}  color="var(--brand-700)" />
+          <ExpenseBucket title="One-Time Expenses" txns={data.one_time}           color="#B7402A" />
+        </>
+      )}
+    </div>
+  );
+}
+
 function PropertyDetail({ propId, onPropertyUpdated, onPropertyDeleted }) {
   const [prop, setProp]         = useState(null);
   const [loading, setLoading]   = useState(false);
@@ -393,6 +522,7 @@ function PropertyDetail({ propId, onPropertyUpdated, onPropertyDeleted }) {
   const [editUnit, setEditUnit] = useState(null);
   const [addRule, setAddRule]   = useState(false);
   const [editRule, setEditRule] = useState(null);
+  const [activeTab, setActiveTab] = useState("setup");
 
   const load = useCallback(() => {
     if (!propId) return;
@@ -460,6 +590,16 @@ function PropertyDetail({ propId, onPropertyUpdated, onPropertyDeleted }) {
           </button>
         </div>
       </div>
+
+      {/* Tab strip */}
+      <div className="segmented" style={{ marginBottom: 20 }}>
+        <button className={activeTab === "setup" ? "on" : ""} onClick={() => setActiveTab("setup")}>Setup</button>
+        <button className={activeTab === "expenses" ? "on" : ""} onClick={() => setActiveTab("expenses")}>Expense Analysis</button>
+      </div>
+
+      {activeTab === "expenses" && <PropertyExpenseAnalysis propId={propId} />}
+
+      {activeTab === "setup" && <>
 
       {/* Units */}
       <div className="card flush">
@@ -541,6 +681,11 @@ function PropertyDetail({ propId, onPropertyUpdated, onPropertyDeleted }) {
                       {s.label} — {s.percentage}%
                     </span>
                   ))}
+                  {rule.merchant_pattern && (
+                    <span className="pill" style={{ fontSize: 11, color: "var(--ink-2)" }}>
+                      auto: {rule.merchant_pattern}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -550,6 +695,8 @@ function PropertyDetail({ propId, onPropertyUpdated, onPropertyDeleted }) {
 
       {/* Schedule E */}
       <ScheduleETable propId={propId} />
+
+      </>}
 
       {/* Modals */}
       {editProp && (
